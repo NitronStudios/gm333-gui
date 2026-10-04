@@ -2,8 +2,10 @@
 """
 Threaded Audio Reactive Music Sync Engine for GM333.
 Features:
+- Pure direct software RGB lighting control (no autonomous firmware animation conflict)
+- Absolute silence gate: mouse is completely dark when silent (silence brightness 0.0)
 - Dynamic mouse LED brightness directly proportional to audio loudness/RMS
-- Automatic color cycling across selected palette on musical beat/kick
+- Automatic color cycling on musical beats with strict noise-rejection gate
 - Real-time visualization telemetry sent to GTK GUI
 """
 
@@ -19,9 +21,14 @@ from gi.repository import GLib
 
 from .utils import PALETTES, HIDIOCSFEATURE_8, nibbles_to_hex
 
-PKT_INIT_MUSIC_SYNC = bytes([0x07, 0x13, 0x80, 0x42, 0x1b, 0x00, 0x80, 0x02])
-PKT_RESTORE_NEON   = bytes([0x07, 0x13, 0x80, 0xf2, 0x1b, 0x00, 0x00, 0x02])
-LEVEL_CODES        = [7, 5, 5, 4, 4, 3, 3, 2, 2, 0]
+# Mode 3 (Static Solid Mode for full direct software LED control)
+# Setting mode 3 prevents the mouse firmware from executing its internal autonomous cycling animation
+_B3_MODE3 = ((1 << 7) + (3 << 4) + 2) & 0xff
+_B6_MODE3 = (((3 >> 3) << 7) + ((0x4002 >> 8) & 3)) & 0xff
+PKT_INIT_DIRECT_SYNC = bytes([0x07, 0x13, 0x80, _B3_MODE3, 0x1b, 0, _B6_MODE3, 0x4002 & 0xff])
+
+# Restore Mode 7: Neon Wave default
+PKT_RESTORE_NEON = bytes([0x07, 0x13, 0x80, 0xf2, 0x1b, 0x00, 0x00, 0x02])
 
 class MusicSyncEngine:
     def __init__(self, controller, on_update_callback=None):
@@ -35,7 +42,7 @@ class MusicSyncEngine:
         self.palette_name = "cyberpunk"
         self.sensitivity = 1.0
         self.fps = 30
-        self.min_brightness = 0.0  # 0.0 = completely off when quiet, 0.15 = subtle ambient glow
+        self.min_brightness = 0.0  # 0.0 = completely dark/off in silence
         self.color_on_beat = True
         self.target_sink = None
 
@@ -123,9 +130,13 @@ class MusicSyncEngine:
             return
 
         try:
-            # 1. Initialize mouse into hardware Music Sync Mode
-            fcntl.ioctl(fd, HIDIOCSFEATURE_8, PKT_INIT_MUSIC_SYNC)
-            time.sleep(0.05)
+            # 1. Initialize mouse into Direct Static Mode (prevents firmware from running autonomous animations)
+            fcntl.ioctl(fd, HIDIOCSFEATURE_8, PKT_INIT_DIRECT_SYNC)
+            time.sleep(0.04)
+
+            # Turn off all 8 zones initially
+            for z in range(8):
+                fcntl.ioctl(fd, HIDIOCSFEATURE_8, bytes([0x07, 0x14, (z << 5) | 0, 0, 0, 0, 0, 0]))
 
             color_idx = 0
             noise_floor = 150.0
@@ -152,7 +163,7 @@ class MusicSyncEngine:
                 self.current_sink_name = sink_simple or monitor
                 self.status_text = "Listening to audio..."
 
-                # Start parec process
+                # Start low-latency parec process on monitor sink
                 cmd = ["parec", "-d", monitor, "--format=s16le", "--channels=1", "--rate=22050", "--latency-msec=25"]
                 try:
                     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -185,31 +196,41 @@ class MusicSyncEngine:
 
                         now = time.time()
 
-                        # AGC
-                        if rms > 50:
+                        # Silence Gate (Noise Floor)
+                        if rms > 60:
                             noise_floor = (noise_floor * 0.98) + (min(rms, noise_floor) * 0.02)
                             if rms > peak_ceiling:
                                 peak_ceiling = (peak_ceiling * 0.70) + (rms * 0.30)
                             else:
                                 peak_ceiling = max(800.0, peak_ceiling * 0.999)
+                        else:
+                            noise_floor = 120.0
 
                         sens = self.sensitivity
                         eff_floor = max(80.0, noise_floor / sens)
                         eff_ceiling = max(eff_floor + 400.0, peak_ceiling / sens)
-                        norm = max(0.0, min(1.0, (rms - eff_floor) / (eff_ceiling - eff_floor)))
+                        
+                        # True normalized audio volume
+                        if rms <= eff_floor:
+                            norm = 0.0
+                        else:
+                            norm = max(0.0, min(1.0, (rms - eff_floor) / (eff_ceiling - eff_floor)))
 
-                        # Advanced Beat Detection
+                        # Advanced Beat Detection with STRICT Silence / Noise Gate
                         delta = rms - prev_rms
                         energy_fast = (energy_fast * 0.55) + (rms * 0.45)
                         energy_slow = (energy_slow * 0.95) + (rms * 0.05)
 
-                        beat_thresh = 1.18 / sens
-                        delta_thresh = 180.0 / sens
+                        beat_thresh = 1.25 / sens
+                        delta_thresh = 200.0 / sens
                         is_beat = False
-                        if (now - last_beat_time) > 0.16:
-                            if (energy_fast > (energy_slow * beat_thresh) and delta > delta_thresh and norm > 0.35) or (norm > 0.85 and delta > 250.0):
-                                is_beat = True
-                                last_beat_time = now
+
+                        # NEVER trigger beat if silent or low ambient level
+                        if rms > 140.0 and norm > 0.30:
+                            if (now - last_beat_time) > 0.18:
+                                if (energy_fast > (energy_slow * beat_thresh) and delta > delta_thresh) or (norm > 0.82 and delta > 240.0):
+                                    is_beat = True
+                                    last_beat_time = now
 
                         prev_rms = rms
 
@@ -217,69 +238,59 @@ class MusicSyncEngine:
                         palette_info = PALETTES.get(self.palette_name, PALETTES["cyberpunk"])
                         palette_colors = palette_info["colors"]
 
-                        # Change color on beat!
-                        if is_beat and self.color_on_beat:
+                        # Cycle color ONLY when a genuine beat triggers and music is actively playing
+                        if is_beat and self.color_on_beat and norm > 0.25:
                             color_idx = (color_idx + 1) % len(palette_colors)
-                            # Beat spike gives instantaneous brightness burst
-                            smooth_norm = max(smooth_norm, min(1.0, norm + 0.35))
+                            # Instant beat burst
+                            smooth_norm = max(smooth_norm, min(1.0, norm + 0.30))
 
-                        # Loudness tracking for Brightness (fast attack, smooth musical decay)
-                        if norm > smooth_norm:
-                            smooth_norm = (smooth_norm * 0.25) + (norm * 0.75)
+                        # Loudness tracking for Brightness
+                        if norm <= 0.01:
+                            # Immediate silence decay
+                            smooth_norm = smooth_norm * 0.75
+                            if smooth_norm < 0.01:
+                                smooth_norm = 0.0
+                        elif norm > smooth_norm:
+                            # Fast attack
+                            smooth_norm = (smooth_norm * 0.20) + (norm * 0.80)
                         else:
-                            smooth_norm = (smooth_norm * 0.86) + (norm * 0.14)
+                            # Smooth musical decay
+                            smooth_norm = (smooth_norm * 0.85) + (norm * 0.15)
 
-                        # Perceptual human brightness curve
-                        if norm < 0.02 and not is_beat:
+                        # Calculate effective brightness
+                        if smooth_norm <= 0.005:
                             brightness = self.min_brightness
                         else:
                             perceptual = smooth_norm ** 0.85
                             brightness = self.min_brightness + (1.0 - self.min_brightness) * perceptual
                         brightness = max(0.0, min(1.0, brightness))
 
-                        # Active color scaled by brightness
+                        # Active palette color scaled by brightness
                         r_base, g_base, b_base = palette_colors[color_idx % len(palette_colors)]
-                        r_out = int(round(r_base * brightness))
-                        g_out = int(round(g_base * brightness))
-                        b_out = int(round(b_base * brightness))
+                        
+                        if brightness <= 0.001:
+                            r_out, g_out, b_out = 0, 0, 0
+                        else:
+                            r_out = max(0, min(15, int(round(r_base * brightness))))
+                            g_out = max(0, min(15, int(round(g_base * brightness))))
+                            b_out = max(0, min(15, int(round(b_base * brightness))))
 
-                        r_out = max(0, min(15, r_out))
-                        g_out = max(0, min(15, g_out))
-                        b_out = max(0, min(15, b_out))
-
+                        # Send updates to mouse
                         min_interval = 1.0 / max(15, min(self.fps, 45))
                         if (now - last_send_time) >= min_interval:
                             last_send_time = now
 
-                            # 1. Native sound level packet (sets audio reactivity code)
-                            lvl_idx = min(9, int(smooth_norm * 9.99))
-                            lvl_code = LEVEL_CODES[lvl_idx]
-                            pkt_sound = bytes([0x07, 0x13, 0x80, 0xa1, 0x1b, lvl_code, 0x03, 0xff])
-                            try:
-                                fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt_sound)
-                            except Exception:
-                                pass
-
-                            # 2. Wave response packet
-                            wave_lvl = min(5, int(smooth_norm * 5.99))
-                            timing = 2 if wave_lvl <= 2 else (1 if wave_lvl <= 4 else 0)
-                            pkt_wave = bytes([0x07, 0x13, 0xff, wave_lvl, 0x10, timing, 0x80, 0x00])
-                            try:
-                                fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt_wave)
-                            except Exception:
-                                pass
-
-                            # 3. Direct RGB Color & Brightness Output to all 8 LED zones
+                            # Only transmit over USB if color/brightness has changed or on beat
                             if (r_out, g_out, b_out) != (last_r, last_g, last_b) or is_beat:
                                 last_r, last_g, last_b = r_out, g_out, b_out
                                 for zone in range(8):
-                                    pkt_rgb = bytes([0x07, 0x14, (zone << 5) | (r_out & 0x0f), ((g_out & 0x0f) << 4) | (b_out & 0x0f), 0x00, 0x00, 0x00, 0x00])
+                                    pkt_rgb = bytes([0x07, 0x14, (zone << 5) | (r_out & 0x0f), ((g_out & 0x0f) << 4) | (b_out & 0x0f), 0, 0, 0, 0])
                                     try:
                                         fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt_rgb)
                                     except Exception:
                                         pass
 
-                        # Notify UI with live stats
+                        # Notify UI
                         base_hex = nibbles_to_hex(r_base, g_base, b_base)
                         self.current_rms = rms
                         self.current_norm = smooth_norm
@@ -287,7 +298,9 @@ class MusicSyncEngine:
                         self.current_color = (r_base, g_base, b_base)
                         self.current_color_hex = base_hex
                         self.is_beat = is_beat
-                        self._notify_gui(rms, smooth_norm, brightness, is_beat, "Active (Syncing)", (r_base, g_base, b_base), base_hex)
+                        
+                        status_str = "Active (Syncing)" if norm > 0.01 else "Active (Silent / Idle)"
+                        self._notify_gui(rms, smooth_norm, brightness, is_beat, status_str, (r_base, g_base, b_base), base_hex)
 
                 finally:
                     proc.terminate()
