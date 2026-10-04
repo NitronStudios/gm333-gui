@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 Threaded Audio Reactive Music Sync Engine for GM333.
-Streams live desktop audio (PipeWire/PulseAudio) to the GM333 controller
-and posts real-time visualization data back to the GTK GUI.
+Features:
+- Dynamic mouse LED brightness directly proportional to audio loudness/RMS
+- Automatic color cycling across selected palette on musical beat/kick
+- Real-time visualization telemetry sent to GTK GUI
 """
 
 import os
@@ -15,7 +17,7 @@ import threading
 import subprocess
 from gi.repository import GLib
 
-from .utils import PALETTES, HIDIOCSFEATURE_8
+from .utils import PALETTES, HIDIOCSFEATURE_8, nibbles_to_hex
 
 PKT_INIT_MUSIC_SYNC = bytes([0x07, 0x13, 0x80, 0x42, 0x1b, 0x00, 0x80, 0x02])
 PKT_RESTORE_NEON   = bytes([0x07, 0x13, 0x80, 0xf2, 0x1b, 0x00, 0x00, 0x02])
@@ -32,13 +34,18 @@ class MusicSyncEngine:
         # Configurable params
         self.palette_name = "cyberpunk"
         self.sensitivity = 1.0
-        self.fps = 25
+        self.fps = 30
+        self.min_brightness = 0.0  # 0.0 = completely off when quiet, 0.15 = subtle ambient glow
+        self.color_on_beat = True
         self.target_sink = None
 
         # Live telemetry
         self.current_sink_name = "Detecting..."
         self.current_rms = 0.0
         self.current_norm = 0.0
+        self.current_brightness = 0.0
+        self.current_color = (0, 15, 15)  # Cyan default
+        self.current_color_hex = "#00ffff"
         self.is_beat = False
         self.status_text = "Idle"
 
@@ -50,7 +57,13 @@ class MusicSyncEngine:
         self.sensitivity = max(0.1, min(5.0, float(val)))
 
     def set_fps(self, val):
-        self.fps = max(10, min(50, int(val)))
+        self.fps = max(15, min(45, int(val)))
+
+    def set_min_brightness(self, val):
+        self.min_brightness = max(0.0, min(0.5, float(val)))
+
+    def set_color_on_beat(self, enabled):
+        self.color_on_beat = bool(enabled)
 
     def get_audio_sinks(self):
         """Lists available audio output monitor sinks."""
@@ -94,11 +107,11 @@ class MusicSyncEngine:
             self.thread.join(timeout=1.5)
         self.is_running = False
         self.status_text = "Stopped"
-        self._notify_gui(0.0, 0.0, False, "Stopped")
+        self._notify_gui(0.0, 0.0, 0.0, False, "Stopped", (0, 0, 0), "#000000")
 
-    def _notify_gui(self, rms, norm, is_beat, status):
+    def _notify_gui(self, rms, norm, brightness, is_beat, status, color_rgb, color_hex):
         if self.on_update:
-            GLib.idle_add(self.on_update, rms, norm, is_beat, status, self.current_sink_name)
+            GLib.idle_add(self.on_update, rms, norm, brightness, is_beat, status, self.current_sink_name, color_rgb, color_hex)
 
     def _worker(self):
         """Background streaming worker loop."""
@@ -106,7 +119,7 @@ class MusicSyncEngine:
         if fd is None:
             self.status_text = "Failed to open mouse device"
             self.is_running = False
-            self._notify_gui(0.0, 0.0, False, self.status_text)
+            self._notify_gui(0.0, 0.0, 0.0, False, self.status_text, (0, 0, 0), "#000000")
             return
 
         try:
@@ -120,6 +133,11 @@ class MusicSyncEngine:
             last_send_time = 0
             last_beat_time = 0
             prev_rms = 0.0
+            smooth_norm = 0.0
+            energy_fast = 0.0
+            energy_slow = 0.0
+
+            last_r, last_g, last_b = -1, -1, -1
 
             while not self.stop_event.is_set():
                 # Detect active audio sink
@@ -127,14 +145,14 @@ class MusicSyncEngine:
                 if not monitor:
                     self.current_sink_name = "Waiting for audio device..."
                     self.status_text = "No active audio sink found"
-                    self._notify_gui(0.0, 0.0, False, self.status_text)
+                    self._notify_gui(0.0, 0.0, 0.0, False, self.status_text, (0, 0, 0), "#000000")
                     time.sleep(1.0)
                     continue
 
                 self.current_sink_name = sink_simple or monitor
                 self.status_text = "Listening to audio..."
 
-                # Start parec
+                # Start parec process
                 cmd = ["parec", "-d", monitor, "--format=s16le", "--channels=1", "--rate=22050", "--latency-msec=25"]
                 try:
                     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -144,7 +162,7 @@ class MusicSyncEngine:
                         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
                     except Exception as e:
                         self.status_text = f"Audio capture error: {e}"
-                        self._notify_gui(0.0, 0.0, False, self.status_text)
+                        self._notify_gui(0.0, 0.0, 0.0, False, self.status_text, (0, 0, 0), "#000000")
                         time.sleep(2.0)
                         continue
 
@@ -180,16 +198,61 @@ class MusicSyncEngine:
                         eff_ceiling = max(eff_floor + 400.0, peak_ceiling / sens)
                         norm = max(0.0, min(1.0, (rms - eff_floor) / (eff_ceiling - eff_floor)))
 
+                        # Advanced Beat Detection
                         delta = rms - prev_rms
-                        is_beat = (norm > 0.45 and delta > 300.0) or (norm > 0.85)
+                        energy_fast = (energy_fast * 0.55) + (rms * 0.45)
+                        energy_slow = (energy_slow * 0.95) + (rms * 0.05)
+
+                        beat_thresh = 1.18 / sens
+                        delta_thresh = 180.0 / sens
+                        is_beat = False
+                        if (now - last_beat_time) > 0.16:
+                            if (energy_fast > (energy_slow * beat_thresh) and delta > delta_thresh and norm > 0.35) or (norm > 0.85 and delta > 250.0):
+                                is_beat = True
+                                last_beat_time = now
+
                         prev_rms = rms
 
-                        min_interval = 1.0 / max(10, min(self.fps, 45))
+                        # Get current color palette
+                        palette_info = PALETTES.get(self.palette_name, PALETTES["cyberpunk"])
+                        palette_colors = palette_info["colors"]
+
+                        # Change color on beat!
+                        if is_beat and self.color_on_beat:
+                            color_idx = (color_idx + 1) % len(palette_colors)
+                            # Beat spike gives instantaneous brightness burst
+                            smooth_norm = max(smooth_norm, min(1.0, norm + 0.35))
+
+                        # Loudness tracking for Brightness (fast attack, smooth musical decay)
+                        if norm > smooth_norm:
+                            smooth_norm = (smooth_norm * 0.25) + (norm * 0.75)
+                        else:
+                            smooth_norm = (smooth_norm * 0.86) + (norm * 0.14)
+
+                        # Perceptual human brightness curve
+                        if norm < 0.02 and not is_beat:
+                            brightness = self.min_brightness
+                        else:
+                            perceptual = smooth_norm ** 0.85
+                            brightness = self.min_brightness + (1.0 - self.min_brightness) * perceptual
+                        brightness = max(0.0, min(1.0, brightness))
+
+                        # Active color scaled by brightness
+                        r_base, g_base, b_base = palette_colors[color_idx % len(palette_colors)]
+                        r_out = int(round(r_base * brightness))
+                        g_out = int(round(g_base * brightness))
+                        b_out = int(round(b_base * brightness))
+
+                        r_out = max(0, min(15, r_out))
+                        g_out = max(0, min(15, g_out))
+                        b_out = max(0, min(15, b_out))
+
+                        min_interval = 1.0 / max(15, min(self.fps, 45))
                         if (now - last_send_time) >= min_interval:
                             last_send_time = now
 
-                            # Sound level packet
-                            lvl_idx = min(9, int(norm * 9.99))
+                            # 1. Native sound level packet (sets audio reactivity code)
+                            lvl_idx = min(9, int(smooth_norm * 9.99))
                             lvl_code = LEVEL_CODES[lvl_idx]
                             pkt_sound = bytes([0x07, 0x13, 0x80, 0xa1, 0x1b, lvl_code, 0x03, 0xff])
                             try:
@@ -197,8 +260,8 @@ class MusicSyncEngine:
                             except Exception:
                                 pass
 
-                            # Wave response packet
-                            wave_lvl = min(5, int(norm * 5.99))
+                            # 2. Wave response packet
+                            wave_lvl = min(5, int(smooth_norm * 5.99))
                             timing = 2 if wave_lvl <= 2 else (1 if wave_lvl <= 4 else 0)
                             pkt_wave = bytes([0x07, 0x13, 0xff, wave_lvl, 0x10, timing, 0x80, 0x00])
                             try:
@@ -206,25 +269,25 @@ class MusicSyncEngine:
                             except Exception:
                                 pass
 
-                            # Color pulse on beat
-                            palette_info = PALETTES.get(self.palette_name, PALETTES["cyberpunk"])
-                            palette_colors = palette_info["colors"]
-                            if is_beat and (now - last_beat_time) > 0.11:
-                                last_beat_time = now
-                                r, g, b = palette_colors[color_idx % len(palette_colors)]
-                                color_idx += 1
-                                for zone in range(4):
-                                    pkt_rgb = bytes([0x07, 0x14, (zone << 5) | (r & 0x0f), ((g & 0x0f) << 4) | (b & 0x0f), 0x00, 0x00, 0x00, 0x00])
+                            # 3. Direct RGB Color & Brightness Output to all 8 LED zones
+                            if (r_out, g_out, b_out) != (last_r, last_g, last_b) or is_beat:
+                                last_r, last_g, last_b = r_out, g_out, b_out
+                                for zone in range(8):
+                                    pkt_rgb = bytes([0x07, 0x14, (zone << 5) | (r_out & 0x0f), ((g_out & 0x0f) << 4) | (b_out & 0x0f), 0x00, 0x00, 0x00, 0x00])
                                     try:
                                         fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt_rgb)
                                     except Exception:
                                         pass
 
-                        # Notify UI
+                        # Notify UI with live stats
+                        base_hex = nibbles_to_hex(r_base, g_base, b_base)
                         self.current_rms = rms
-                        self.current_norm = norm
+                        self.current_norm = smooth_norm
+                        self.current_brightness = brightness
+                        self.current_color = (r_base, g_base, b_base)
+                        self.current_color_hex = base_hex
                         self.is_beat = is_beat
-                        self._notify_gui(rms, norm, is_beat, "Active (Syncing)")
+                        self._notify_gui(rms, smooth_norm, brightness, is_beat, "Active (Syncing)", (r_base, g_base, b_base), base_hex)
 
                 finally:
                     proc.terminate()
