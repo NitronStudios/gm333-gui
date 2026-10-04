@@ -1,0 +1,242 @@
+/* Ant Esports GM333 Linux GUI Modern Dark Theme */
+
+/* Base Window & Background */
+window.background,
+.main-window {
+    background-color: #0b0d14;
+    color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cantarell", "Ubuntu", sans-serif;
+}
+
+/* HeaderBar */
+headerbar {
+    background: linear-gradient(180deg, #161924 0%, #10121a 100%);
+    border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    padding: 6px 12px;
+}
+
+headerbar .title {
+    font-weight: 700;
+    font-size: 15px;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+}
+
+headerbar .subtitle {
+    font-size: 11px;
+    color: #00e5ff;
+    font-weight: 500;
+}
+
+/* Modern Tabs (StackSwitcher) */
+.custom-stack-switcher {
+    background-color: #12151f;
+    border-radius: 10px;
+    padding: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.custom-stack-switcher button {
+    background: transparent;
+    color: #8b949e;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 200ms ease-in-out;
+}
+
+.custom-stack-switcher button:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.custom-stack-switcher button:checked {
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.25) 0%, rgba(121, 40, 202, 0.25) 100%);
+    border: 1px solid #00e5ff;
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+}
+
+/* Cards & Containers */
+.glass-card {
+    background: linear-gradient(145deg, #131722 0%, #0e111a 100%);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.hero-card {
+    background: linear-gradient(135deg, rgba(16, 24, 40, 0.95) 0%, rgba(20, 15, 38, 0.95) 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    padding: 22px;
+    box-shadow: 0 10px 30px rgba(0, 229, 255, 0.1);
+}
+
+/* Status Badges */
+.status-badge-connected {
+    background: rgba(0, 255, 136, 0.15);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-badge-disconnected {
+    background: rgba(255, 59, 48, 0.15);
+    color: #ff453a;
+    border: 1px solid rgba(255, 59, 48, 0.4);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-badge-active {
+    background: rgba(0, 229, 255, 0.2);
+    color: #00e5ff;
+    border: 1px solid #00e5ff;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+}
+
+/* Mode Selection Cards */
+.mode-card {
+    background: #141724;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 14px;
+    transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mode-card:hover {
+    background: #1b2030;
+    border-color: rgba(0, 229, 255, 0.4);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.mode-card.active-mode {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.15) 0%, rgba(121, 40, 202, 0.2) 100%);
+    border: 1.5px solid #00e5ff;
+    box-shadow: 0 0 16px rgba(0, 229, 255, 0.35);
+}
+
+.mode-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.mode-desc {
+    font-size: 11px;
+    color: #8b949e;
+}
+
+/* Action Buttons */
+.btn-primary {
+    background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+    color: #ffffff;
+    font-weight: 700;
+    border-radius: 10px;
+    border: none;
+    padding: 10px 20px;
+    box-shadow: 0 4px 14px rgba(0, 114, 255, 0.4);
+    transition: all 150ms ease;
+}
+
+.btn-primary:hover {
+    box-shadow: 0 6px 20px rgba(0, 114, 255, 0.6);
+}
+
+.btn-accent {
+    background: linear-gradient(135deg, #ff007f 0%, #7928ca 100%);
+    color: #ffffff;
+    font-weight: 700;
+    border-radius: 10px;
+    border: none;
+    padding: 10px 20px;
+    box-shadow: 0 4px 14px rgba(255, 0, 127, 0.4);
+    transition: all 150ms ease;
+}
+
+.btn-accent:hover {
+    box-shadow: 0 6px 20px rgba(255, 0, 127, 0.6);
+}
+
+.btn-stop {
+    background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+    color: #ffffff;
+    font-weight: 700;
+    border-radius: 10px;
+    border: none;
+    padding: 10px 20px;
+    box-shadow: 0 4px 14px rgba(229, 57, 53, 0.4);
+}
+
+/* Color Preset Circles */
+.color-pill {
+    border-radius: 50%;
+    min-width: 30px;
+    min-height: 30px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 150ms ease;
+}
+
+.color-pill:hover {
+    border-color: #ffffff;
+}
+
+/* Sliders */
+scale trough {
+    background-color: #1a1e2b;
+    border-radius: 6px;
+    min-height: 8px;
+}
+
+scale highlight {
+    background: linear-gradient(90deg, #00e5ff 0%, #7928ca 100%);
+    border-radius: 6px;
+}
+
+scale slider {
+    background-color: #ffffff;
+    border: 2px solid #00e5ff;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+}
+
+/* VU Meter Level Bar */
+levelbar trough {
+    background-color: #12151e;
+    border-radius: 6px;
+    min-height: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+levelbar block.filled {
+    background: linear-gradient(90deg, #00ff88 0%, #00e5ff 60%, #ff007f 100%);
+    border-radius: 4px;
+}
+
+/* Diagnostics Output Area */
+.diag-log {
+    background-color: #080a0f;
+    color: #38ef7d;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 11px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px;
+}

@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""
+Ant Esports GM333 Linux GUI launcher.
+"""
+
+import os
+import sys
+
+# Ensure this directory is in python path
+current_dir = os.path.dirname(os.path.realpath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+from gm333gui.__main__ import main
+
+if __name__ == "__main__":
+    main()
