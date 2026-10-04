@@ -43,15 +43,15 @@ install_deps() {
     elif has_cmd apt-get; then
         echo -e "${YELLOW}[*] Installing dependencies via apt (Debian/Ubuntu/Mint)...${RESET}"
         sudo apt-get update -qq
-        sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 pulseaudio-utils python3-pil
+        sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 pulseaudio-utils python3-pil python3-numpy
     elif has_cmd dnf; then
         echo -e "${YELLOW}[*] Installing dependencies via dnf (Fedora)...${RESET}"
-        sudo dnf install -y python3-gobject gtk3 pulseaudio-utils python3-pillow
+        sudo dnf install -y python3-gobject gtk3 pulseaudio-utils python3-pillow python3-numpy
     elif has_cmd zypper; then
         echo -e "${YELLOW}[*] Installing dependencies via zypper (openSUSE)...${RESET}"
-        sudo zypper install -y python3-gobject python3-gobject-Gdk gtk3 pulseaudio-utils python3-Pillow
+        sudo zypper install -y python3-gobject python3-gobject-Gdk gtk3 pulseaudio-utils python3-Pillow python3-numpy
     else
-        echo -e "${YELLOW}[!] Unknown package manager. Please ensure python3-gobject, gtk3, and pulseaudio-utils are installed.${RESET}"
+        echo -e "${YELLOW}[!] Unknown package manager. Please ensure python3-gobject, gtk3, numpy, and pulseaudio-utils are installed.${RESET}"
     fi
 }
 

@@ -9,6 +9,10 @@ description = "Ant Esports GM333 Linux Hardware & Music Sync GUI Controller"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.20.0",
+    "Pillow>=8.0.0",
+]
 authors = [
     { name = "Ant Esports Linux Community" }
 ]

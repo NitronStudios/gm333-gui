@@ -98,4 +98,19 @@ Reverse-engineered from `0x44d920` and `0x43cfe0` in `GM333 Setup.exe`:
   - On musical beats: advance color palette if color cycling is enabled.
 - **Working approach (archived in git)**:
   - CLI: `gm333-music-sync` commit `f79d292` — run as normal user (no sudo)
-  - GUI: `gm333-gui` commit `7646d12` — identical logic in `MusicSyncEngine._worker()`
+  - GUI: `gm333-gui` commit `48094cb` — contains Mode 3 native sync + AI Beat Detection (`ai_beat.py`)
+
+---
+
+## 🧠 AI Beat Detection Engine (`ai_beat.py`)
+- **FFT Spectral Flux**: Computes positive rate of spectral energy rise across 512-point FFT frames.
+- **Adaptive Onset Thresholding**: Dynamic mean + standard deviation multiplier with auto-scaling to match track energy.
+- **BPM Grid Phase Locking**: Autocorrelation-based tempo estimation with phase prediction window (60–180 BPM range).
+- **Multi-Band Frequency Tinting**:
+  - Sub-Bass / Bass (< 250 Hz): Low-end punch driver.
+  - Midrange (250 Hz – 2.5 kHz): Vocal & melodic presence.
+  - Highs / Treble (> 2.5 kHz): Shimmer and sparkle highlights.
+- **UI Integration**:
+  - Checkbox toggle in Music Tab ("AI Beat Detection & Auto-Tempo").
+  - Live BPM estimation badge in the GUI status header.
+
