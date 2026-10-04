@@ -4,7 +4,7 @@
 
 **A native, high-performance Linux GUI & hardware driver suite for the Ant Esports GM333 Gaming Mouse.**
 
-[![Release](https://img.shields.io/badge/release-v1.0.0-blue.svg?style=for-the-badge)](https://github.com/xCaptaiN09/gm333-gui/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.0-blue.svg?style=for-the-badge)](https://github.com/NitronStudios/gm333-gui/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Platform](https://img.shields.io/badge/platform-Linux-FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)](https://kernel.org)
@@ -76,7 +76,7 @@ Directly latches firmware registers across all 16 built-in lighting routines:
 Clone the repository and run the installer:
 
 ```bash
-git clone https://github.com/xCaptaiN09/gm333-gui.git
+git clone https://github.com/NitronStudios/gm333-gui.git
 cd gm333-gui
 sudo ./install.sh
 ```
@@ -231,5 +231,5 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more informa
 ---
 
 <div align="center">
-  Crafted with ❤️ by <b>Muhammed Dilshad A (<a href="https://github.com/xCaptaiN09">@xCaptaiN09</a>)</b> & the open-source Linux community.
+  Crafted with ❤️ by <b><a href="https://github.com/NitronStudios">NitronStudios</a></b> (<a href="https://github.com/xCaptaiN09">@xCaptaiN09</a>) & the open-source Linux community.
 </div>

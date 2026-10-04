@@ -47,7 +47,7 @@ Directly sets and latches onboard hardware registers across all 16 microcontroll
 ## 📥 Installation
 
 ```bash
-git clone https://github.com/xCaptaiN09/gm333-gui.git
+git clone https://github.com/NitronStudios/gm333-gui.git
 cd gm333-gui
 sudo ./install.sh
 ```
