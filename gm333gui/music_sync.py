@@ -6,13 +6,12 @@ Features:
 - Smooth brightness scaling: dim at low volume, bright at peak
 - Beat-triggered color cycling across palette
 - Hardware Mode 14 LED off during sustained silence
+- Optional AI Beat Detection: spectral-flux onset + BPM-grid prediction
 - Real-time visualization telemetry sent to GTK GUI
 """
 
 import os
-import sys
 import time
-import math
 import struct
 import fcntl
 import threading
@@ -20,6 +19,12 @@ import subprocess
 from gi.repository import GLib
 
 from .utils import PALETTES, HIDIOCSFEATURE_8, nibbles_to_hex
+
+try:
+    from .ai_beat import AIBeatDetector, band_to_color_weight
+    _AI_AVAILABLE = True
+except ImportError:
+    _AI_AVAILABLE = False
 
 # Mode 3 = Firmware-native Direct Sync mode (music sync engine)
 # B3 = 0x80 | (3<<4) | 0 = 0xb2; B6 = 0x00 (mode 3 < 8)
@@ -62,6 +67,8 @@ class MusicSyncEngine:
         self.current_color_hex = "#00ffff"
         self.is_beat = False
         self.status_text = "Idle"
+        self.ai_mode = False          # AI beat detection toggle
+        self.current_bpm = 0.0        # live BPM estimate (AI mode only)
 
     def set_palette(self, name):
         if name in PALETTES:
@@ -79,6 +86,9 @@ class MusicSyncEngine:
 
     def set_color_on_beat(self, enabled):
         self.color_on_beat = bool(enabled)
+
+    def set_ai_mode(self, enabled):
+        self.ai_mode = bool(enabled) and _AI_AVAILABLE
 
     def get_audio_sinks(self):
         """Lists available audio output monitor sinks."""
@@ -127,7 +137,8 @@ class MusicSyncEngine:
 
     def _notify_gui(self, rms, norm, brightness, is_beat, status, color_rgb, color_hex):
         if self.on_update:
-            GLib.idle_add(self.on_update, rms, norm, brightness, is_beat, status, self.current_sink_name, color_rgb, color_hex)
+            GLib.idle_add(self.on_update, rms, norm, brightness, is_beat, status,
+                          self.current_sink_name, color_rgb, color_hex, self.current_bpm)
 
     def _worker(self):
         """Background streaming worker loop."""
@@ -154,6 +165,8 @@ class MusicSyncEngine:
                                                           0, 0, 0, 0]))
 
             color_idx = 0
+            ai_detector = AIBeatDetector() if _AI_AVAILABLE else None
+            last_bands = {'bass': 0.0, 'mid': 0.0, 'treble': 0.0}
             noise_floor = 150.0
             peak_ceiling = 12000.0
             last_send_time = 0
@@ -237,21 +250,32 @@ class MusicSyncEngine:
                             palette_colors = palette_info["colors"]
                             color_idx = 0
 
-                        # Beat detection — tight thresholds to avoid false triggers
+                        # Beat detection — AI spectral-flux or classic energy threshold
                         delta = rms - prev_rms
                         energy_fast = (energy_fast * 0.55) + (rms * 0.45)
                         energy_slow = (energy_slow * 0.95) + (rms * 0.05)
                         is_beat = False
 
-                        beat_thresh = 1.40 / sens
-                        delta_thresh = 300.0 / sens
-
-                        if rms > 200.0 and norm > 0.40 and (now - last_beat_time) > 0.25:
-                            if (energy_fast > (energy_slow * beat_thresh) and delta > delta_thresh) or (norm > 0.85 and delta > 350.0):
+                        if self.ai_mode and ai_detector and rms > 80.0:
+                            # AI path: spectral flux + BPM-grid prediction
+                            ai_beat, ai_conf, last_bands, ai_bpm = ai_detector.process(samples, now)
+                            self.current_bpm = ai_bpm
+                            if ai_beat and norm > 0.15:
                                 is_beat = True
                                 last_beat_time = now
                                 if self.color_on_beat:
                                     color_idx = (color_idx + 1) % len(palette_colors)
+                        else:
+                            # Classic energy threshold path
+                            self.current_bpm = 0.0
+                            beat_thresh  = 1.40 / sens
+                            delta_thresh = 300.0 / sens
+                            if rms > 200.0 and norm > 0.40 and (now - last_beat_time) > 0.25:
+                                if (energy_fast > (energy_slow * beat_thresh) and delta > delta_thresh) or (norm > 0.85 and delta > 350.0):
+                                    is_beat = True
+                                    last_beat_time = now
+                                    if self.color_on_beat:
+                                        color_idx = (color_idx + 1) % len(palette_colors)
 
                         prev_rms = rms
 
@@ -294,6 +318,11 @@ class MusicSyncEngine:
 
                                     r_base, g_base, b_base = palette_colors[color_idx % len(palette_colors)]
 
+                                    # In AI mode: tint the base color with per-band energies
+                                    if self.ai_mode and _AI_AVAILABLE:
+                                        r_base, g_base, b_base = band_to_color_weight(
+                                            last_bands, (r_base, g_base, b_base))
+
                                     # Scale brightness 0..15 by eff (perceptual curve)
                                     r_s = max(0, min(15, int(round(r_base * eff))))
                                     g_s = max(0, min(15, int(round(g_base * eff))))
@@ -328,7 +357,12 @@ class MusicSyncEngine:
                         self.current_color_hex = base_hex
                         self.is_beat = is_beat
 
-                        status_str = "Active (Syncing)" if brightness > 0.01 else "Active (Silent - Off)"
+                        if self.ai_mode and self.current_bpm > 0:
+                            status_str = f"AI Sync ✦ {self.current_bpm:.0f} BPM"
+                        elif brightness > 0.01:
+                            status_str = "Active (Syncing)"
+                        else:
+                            status_str = "Active (Silent - Off)"
                         self._notify_gui(rms, smooth_norm, brightness, is_beat, status_str, (r_cur, g_cur, b_cur), base_hex)
 
                 finally:

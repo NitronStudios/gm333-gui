@@ -39,7 +39,7 @@ echo -e "\n${CYAN}[1/5] Checking and installing system dependencies...${RESET}"
 install_deps() {
     if has_cmd pacman; then
         echo -e "${YELLOW}[*] Installing dependencies via pacman (Arch Linux)...${RESET}"
-        sudo pacman -S --needed --noconfirm python-gobject gtk3 libpulse python-pillow
+        sudo pacman -S --needed --noconfirm python-gobject gtk3 libpulse python-pillow python-numpy
     elif has_cmd apt-get; then
         echo -e "${YELLOW}[*] Installing dependencies via apt (Debian/Ubuntu/Mint)...${RESET}"
         sudo apt-get update -qq

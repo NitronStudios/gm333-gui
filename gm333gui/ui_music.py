@@ -176,6 +176,22 @@ class MusicSyncView(Gtk.Box):
         grid.attach(lbl_fps, 2, 1, 1, 1)
         grid.attach(self.scale_fps, 3, 1, 1, 1)
 
+        # AI Beat Detection toggle
+        lbl_ai = Gtk.Label(label="🤖 AI Beat Detection:")
+        lbl_ai.set_halign(Gtk.Align.START)
+        ai_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.switch_ai = Gtk.CheckButton(label="Enable (Spectral Flux + BPM Sync)")
+        self.switch_ai.set_active(False)
+        self.switch_ai.connect("toggled", self._on_ai_toggled)
+        self.lbl_bpm = Gtk.Label(label="")
+        self.lbl_bpm.get_style_context().add_class("status-badge-active")
+        self.lbl_bpm.set_visible(False)
+        ai_box.pack_start(self.switch_ai, False, False, 0)
+        ai_box.pack_start(self.lbl_bpm, False, False, 0)
+
+        grid.attach(lbl_ai, 0, 2, 1, 1)
+        grid.attach(ai_box,  1, 2, 3, 1)
+
         ctrl_card.pack_start(grid, False, False, 0)
         self.pack_start(ctrl_card, False, False, 0)
 
@@ -283,6 +299,14 @@ class MusicSyncView(Gtk.Box):
         enabled = widget.get_active()
         self.engine.set_color_on_beat(enabled)
 
+    def _on_ai_toggled(self, widget):
+        enabled = widget.get_active()
+        self.engine.set_ai_mode(enabled)
+        self.lbl_bpm.set_visible(False)
+        if self.on_status_change:
+            state = "enabled" if enabled else "disabled"
+            self.on_status_change(f"AI Beat Detection {state}.", True)
+
     def _on_palette_clicked(self, widget, pkey):
         self.engine.set_palette(pkey)
         self._update_active_palette_ui(pkey)
@@ -303,7 +327,7 @@ class MusicSyncView(Gtk.Box):
             else:
                 btn.get_style_context().remove_class("active-mode")
 
-    def _on_engine_update(self, rms, norm, brightness, is_beat, status, sink_name, color_rgb, color_hex):
+    def _on_engine_update(self, rms, norm, brightness, is_beat, status, sink_name, color_rgb, color_hex, bpm=0.0):
         self.rms = rms
         self.norm = norm
         self.brightness = brightness
@@ -325,6 +349,14 @@ class MusicSyncView(Gtk.Box):
         self._update_color_dot(color_hex)
         self.lbl_state.set_text(f"Status: {status}")
         self.lbl_beat_badge.set_visible(self.beat_pulse > 0.3)
+
+        # BPM display (AI mode only)
+        if bpm > 0:
+            self.lbl_bpm.set_text(f"✦ {bpm:.0f} BPM")
+            self.lbl_bpm.set_visible(True)
+        else:
+            self.lbl_bpm.set_visible(False)
+
         return False
 
     def _on_anim_tick(self):

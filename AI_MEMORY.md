@@ -91,8 +91,11 @@ Reverse-engineered from `0x44d920` and `0x43cfe0` in `GM333 Setup.exe`:
 
 ## 📌 Preferences & Constraints
 - **Strictly do NOT use phone camera / ADB**: Rely solely on direct user reports.
+- **NEVER run gm333-music-sync.py with sudo**: Running as root causes `parec`/PipeWire to chown `/run/user/1000/pulse` to root, breaking audio for the entire user session. The udev rule (`MODE="0666"`) grants HID access without sudo.
 - **Music Reactive Dynamics**:
-  - In silence / 0 volume: mouse light must cleanly turn completely off (0 brightness / pitch black).
-  - On sound: smoothly scale brightness up to full on peak loudness.
+  - In silence / 0 volume: mouse light must cleanly turn completely off (Mode 14 hardware kill).
+  - On sound: smoothly scale brightness up to full on peak loudness (0x14 per-frame with smooth_norm scaling).
   - On musical beats: advance color palette if color cycling is enabled.
-
+- **Working approach (archived in git)**:
+  - CLI: `gm333-music-sync` commit `f79d292` — run as normal user (no sudo)
+  - GUI: `gm333-gui` commit `7646d12` — identical logic in `MusicSyncEngine._worker()`
