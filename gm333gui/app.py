@@ -103,23 +103,45 @@ class GM333App(Gtk.ApplicationWindow):
 
         self.set_titlebar(header)
 
+    def switch_to_music_tab(self):
+        self.stack.set_visible_child_name("music")
+        if not self.view_music.engine.is_running:
+            self.view_music.start_music_sync()
+
     def _build_content(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
-        # 1. Lighting View Tab
-        self.view_lighting = LightingView(self.controller, on_status_change=self.set_status_message)
-        self.stack.add_titled(self.view_lighting, "lighting", "🌈 Lighting Modes")
-
-        # 2. Music Sync View Tab
+        # 2. Music Sync View Tab (instantiated first for callback binding)
         self.view_music = MusicSyncView(self.controller, on_status_change=self.set_status_message)
+
+        # 1. Lighting View Tab
+        self.view_lighting = LightingView(
+            self.controller,
+            on_status_change=self.set_status_message,
+            on_switch_to_music=self.switch_to_music_tab,
+            on_lighting_applied=lambda: self.view_music.stop_music_sync(restore_neon=False)
+        )
+
+        self.stack.add_titled(self.view_lighting, "lighting", "🌈 Lighting Modes")
         self.stack.add_titled(self.view_music, "music", "🎵 Music Sync")
 
         # 3. Device Info & Udev Tab
         self.view_info = InfoView(self.controller, on_status_change=self.set_status_message)
         self.stack.add_titled(self.view_info, "info", "ℹ️ Device & Info")
 
+        # Automatically start music sync when switching to music tab, and stop when leaving
+        self.stack.connect("notify::visible-child-name", self._on_tab_changed)
+
         main_box.pack_start(self.stack, True, True, 0)
         self.add(main_box)
+
+    def _on_tab_changed(self, stack, param):
+        child_name = stack.get_visible_child_name()
+        if child_name == "music":
+            self.view_music.start_music_sync()
+        elif child_name == "lighting":
+            self.view_music.stop_music_sync(restore_neon=False)
+            self.view_lighting.apply_current_settings()
 
     def _build_statusbar(self):
         bar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)

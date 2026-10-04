@@ -9,15 +9,17 @@ from gi.repository import Gtk, Gdk, GLib
 from .utils import MODES_INFO, PRESET_COLORS, hex_to_nibbles, nibbles_to_hex
 
 class LightingView(Gtk.Box):
-    def __init__(self, controller, on_status_change=None):
+    def __init__(self, controller, on_status_change=None, on_switch_to_music=None, on_lighting_applied=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         self.controller = controller
         self.on_status_change = on_status_change
+        self.on_switch_to_music = on_switch_to_music
+        self.on_lighting_applied = on_lighting_applied
 
         self.current_mode_key = "neon"
         self.current_color = (0, 15, 15)  # Cyan
         self.current_speed = 2
-        self.current_brightness = 0
+        self.current_brightness = 4
         self.mode_buttons = {}
 
         self.set_margin_top(16)
@@ -229,8 +231,19 @@ class LightingView(Gtk.Box):
         self.apply_current_settings()
 
     def apply_current_settings(self):
-        # Stop background music service if running so it doesn't overwrite
-        if self.current_mode_key != "music":
+        # If user selected Music Sync, seamlessly redirect to Music Sync tab
+        if self.current_mode_key == "music":
+            if self.on_switch_to_music:
+                self.on_switch_to_music()
+            return
+
+        # Stop music visualizer so it doesn't fight the selected lighting mode
+        if self.on_lighting_applied:
+            try:
+                self.on_lighting_applied(restore_neon=False)
+            except TypeError:
+                self.on_lighting_applied()
+        else:
             self.controller.stop_service()
 
         target_mode = next((m for m in MODES_INFO if m["key"] == self.current_mode_key), None)

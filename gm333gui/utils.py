@@ -9,11 +9,11 @@ HIDIOCSFEATURE_8 = 0xc0084806
 VENDOR_ID = "30fa"
 PRODUCT_ID = "1440"
 
-# 16 Hardware Lighting Modes: id -> (name, title, description, category, supports_color)
+# Hardware Lighting Modes mapped to exact Instant Microelectronics firmware IDs:
 MODES_INFO = [
     {
         "key": "neon",
-        "id": 7,
+        "id": 6,
         "name": "Neon Wave",
         "desc": "Smooth multi-color vibrant rainbow wave flowing across mouse",
         "icon": "weather-clear-symbolic",
@@ -23,7 +23,7 @@ MODES_INFO = [
     },
     {
         "key": "breathing",
-        "id": 2,
+        "id": 1,
         "name": "Cycle Breathing",
         "desc": "Smoothly pulses and transitions through all RGB spectrum colors",
         "icon": "weather-clouds-night-symbolic",
@@ -33,7 +33,7 @@ MODES_INFO = [
     },
     {
         "key": "static",
-        "id": 3,
+        "id": 2,
         "name": "Static Solid",
         "desc": "Solid steady glow with your custom selected color",
         "icon": "starred-symbolic",
@@ -43,7 +43,7 @@ MODES_INFO = [
     },
     {
         "key": "wave",
-        "id": 4,
+        "id": 3,
         "name": "Flowing Water",
         "desc": "Continuous directional wave streaming through the LED channels",
         "icon": "emblem-shared-symbolic",
@@ -53,7 +53,7 @@ MODES_INFO = [
     },
     {
         "key": "mono-wave",
-        "id": 5,
+        "id": 4,
         "name": "Mono Water",
         "desc": "Single-color directional flowing wave pulse",
         "icon": "media-playlist-shuffle-symbolic",
@@ -63,7 +63,7 @@ MODES_INFO = [
     },
     {
         "key": "comet",
-        "id": 6,
+        "id": 5,
         "name": "Comet Streak",
         "desc": "High-speed light trail streaking across the chassis",
         "icon": "system-run-symbolic",
@@ -73,7 +73,7 @@ MODES_INFO = [
     },
     {
         "key": "ambilight",
-        "id": 8,
+        "id": 7,
         "name": "Ambilight",
         "desc": "Dynamic ambient glow subtly changing hues",
         "icon": "display-brightness-symbolic",
@@ -83,7 +83,7 @@ MODES_INFO = [
     },
     {
         "key": "flicker",
-        "id": 9,
+        "id": 8,
         "name": "Rhythmic Flicker",
         "desc": "Dynamic rhythmic flickering strobe effect",
         "icon": "camera-flash-symbolic",
@@ -93,7 +93,7 @@ MODES_INFO = [
     },
     {
         "key": "startrek",
-        "id": 10,
+        "id": 9,
         "name": "Star Trek",
         "desc": "Moving warp stars pulsating across opposite zones",
         "icon": "applications-science-symbolic",
@@ -103,7 +103,7 @@ MODES_INFO = [
     },
     {
         "key": "ripple",
-        "id": 11,
+        "id": 10,
         "name": "Water Ripple",
         "desc": "Expansive ripple radiating like a water droplet",
         "icon": "audio-speakers-symbolic",
@@ -112,28 +112,18 @@ MODES_INFO = [
         "supports_brightness": True,
     },
     {
-        "key": "single-breath",
-        "id": 15,
-        "name": "Single Breath",
-        "desc": "Pulsing breathing effect with a custom single color",
+        "key": "enraptured",
+        "id": 11,
+        "name": "Enraptured",
+        "desc": "Multi-phase wave dancing across opposite flanks",
         "icon": "weather-overcast-symbolic",
-        "supports_color": True,
-        "supports_speed": True,
-        "supports_brightness": True,
-    },
-    {
-        "key": "cycle-color",
-        "id": 16,
-        "name": "Color Stepper",
-        "desc": "Step-switches between individual rainbow colors",
-        "icon": "view-refresh-symbolic",
         "supports_color": False,
         "supports_speed": True,
         "supports_brightness": True,
     },
     {
         "key": "dpi-breath",
-        "id": 1,
+        "id": 0,
         "name": "DPI Breathing",
         "desc": "Breathes according to current hardware DPI preset level",
         "icon": "input-mouse-symbolic",
@@ -143,7 +133,7 @@ MODES_INFO = [
     },
     {
         "key": "reactive",
-        "id": 13,
+        "id": 12,
         "name": "Click Response",
         "desc": "Illuminates dynamically in response to mouse clicks",
         "icon": "input-touchpad-symbolic",
@@ -153,7 +143,7 @@ MODES_INFO = [
     },
     {
         "key": "music",
-        "id": 12,
+        "id": 2,
         "name": "Music Sync",
         "desc": "Audio-reactive rhythm sync controlled in Music Sync tab",
         "icon": "audio-x-generic-symbolic",
@@ -163,7 +153,7 @@ MODES_INFO = [
     },
     {
         "key": "off",
-        "id": 14,
+        "id": 13,
         "name": "Turn LEDs Off",
         "desc": "Completely turn off all mouse lighting for stealth mode",
         "icon": "system-shutdown-symbolic",

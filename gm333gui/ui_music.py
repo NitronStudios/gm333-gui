@@ -240,23 +240,32 @@ class MusicSyncView(Gtk.Box):
         provider.load_from_data(css.encode())
         self.color_dot.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
+    def start_music_sync(self):
+        self.engine.start()
+        self.btn_toggle.set_label("STOP MUSIC SYNC")
+        self.btn_toggle.get_style_context().remove_class("btn-accent")
+        self.btn_toggle.get_style_context().add_class("btn-stop")
+        self.lbl_state.set_text("Status: Active (Music Sync running)")
+        if self.on_status_change:
+            self.on_status_change("Music Sync active! Mouse brightness tracks loudness, color changes on beat.", True)
+
+    def stop_music_sync(self, restore_neon=True):
+        if self.engine.is_running:
+            self.engine.stop(restore_neon=restore_neon)
+        self.btn_toggle.set_label("START MUSIC SYNC")
+        self.btn_toggle.get_style_context().remove_class("btn-stop")
+        self.btn_toggle.get_style_context().add_class("btn-accent")
+        status_text = "Status: Stopped (Default Neon lighting restored)" if restore_neon else "Status: Stopped"
+        self.lbl_state.set_text(status_text)
+        if self.on_status_change:
+            msg = "Music Sync stopped. Default mouse lighting restored." if restore_neon else "Music Sync stopped."
+            self.on_status_change(msg, True)
+
     def _on_toggle_clicked(self, widget):
         if self.engine.is_running:
-            self.engine.stop()
-            self.btn_toggle.set_label("START MUSIC SYNC")
-            self.btn_toggle.get_style_context().remove_class("btn-stop")
-            self.btn_toggle.get_style_context().add_class("btn-accent")
-            self.lbl_state.set_text("Status: Stopped (Default Neon lighting restored)")
-            if self.on_status_change:
-                self.on_status_change("Music Sync stopped. Default mouse lighting restored.", True)
+            self.stop_music_sync()
         else:
-            self.engine.start()
-            self.btn_toggle.set_label("STOP MUSIC SYNC")
-            self.btn_toggle.get_style_context().remove_class("btn-accent")
-            self.btn_toggle.get_style_context().add_class("btn-stop")
-            self.lbl_state.set_text("Status: Active (Music Sync running)")
-            if self.on_status_change:
-                self.on_status_change("Music Sync active! Mouse brightness tracks loudness, color changes on beat.", True)
+            self.start_music_sync()
 
     def _on_sens_changed(self, widget):
         val = widget.get_value()

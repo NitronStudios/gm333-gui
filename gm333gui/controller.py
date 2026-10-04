@@ -77,10 +77,10 @@ class GM333Controller:
             self.error_message = str(e)
             return None
 
-    def send_mode(self, led_type, speed=2, brightness=0, r=None, g=None, b=None):
+    def send_mode(self, led_type, speed=2, brightness=4, r=None, g=None, b=None):
         """
         Sends the 8-byte HID feature report to configure hardware lighting mode.
-        If color (r, g, b) is supplied, sends color packets right after.
+        If color (r, g, b) is supplied, streams 4-bit nibbles for all 8 zones.
         """
         fd = self.open_device()
         if fd is None:
@@ -91,26 +91,47 @@ class GM333Controller:
             brightness = max(0, min(4, int(brightness)))
             led_type = int(led_type)
 
+            # Official Instant Microelectronics packet structure:
+            # Byte 0: 0x07 (Report ID)
+            # Byte 1: 0x13 (Lighting Mode command)
+            # Byte 2: 0x80 for single color (Static, Mono Water, Off) or 0xff for 7-color cycling
+            # Byte 3: 0x80 | ((led_type & 0x07) << 4) | (speed & 0x07)
+            # Byte 4: 0x1b (Direction: right 0x10 + 0x0b)
+            # Byte 5: brightness & 7 (0 to 4)
+            # Byte 6: 0x80 for modes >= 8 (bit 3 of led_type shifted to bit 7), else 0x00
+            # Byte 7: 0x02
+            is_single_color = led_type in [2, 4, 13]
             b0 = 0x07
             b1 = 0x13
-            b2 = 0x80
-            b3 = ((1 << 7) + (led_type << 4) + (speed & 7)) & 0xff
+            b2 = 0x80 if is_single_color else 0xff
+            b3 = 0x80 | ((led_type & 0x07) << 4) | (speed & 0x07)
             b4 = 0x1b
             b5 = brightness & 7
-            b6 = (((led_type >> 3) << 7) + ((0x4002 >> 8) & 3)) & 0xff
-            b7 = 0x4002 & 0xff
+            b6 = 0x80 if led_type >= 8 else 0x00
+            b7 = 0x02
             pkt = bytes([b0, b1, b2, b3, b4, b5, b6, b7])
-            fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt)
 
-            # If color specified, send color packet
+            # If mode uses single custom color (Static, Mono Water, Single Breath):
             if r is not None and g is not None and b is not None:
-                time.sleep(0.04)
                 r_nib = max(0, min(15, int(r)))
                 g_nib = max(0, min(15, int(g)))
                 b_nib = max(0, min(15, int(b)))
                 for z in range(8):
-                    cpkt = bytes([0x07, 0x14, (z << 5) | (r_nib & 0xf), ((g_nib & 0xf) << 4) | (b_nib & 0xf), 0, 0, 0, 0])
+                    cpkt = bytes([0x07, 0x14, (z << 5) | (g_nib & 0xf), ((r_nib & 0xf) << 4) | (b_nib & 0xf), 0, 0, 0, 0])
                     fcntl.ioctl(fd, HIDIOCSFEATURE_8, cpkt)
+
+            fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt)
+
+            if r is not None and g is not None and b is not None:
+                for z in range(8):
+                    cpkt = bytes([0x07, 0x14, (z << 5) | (g_nib & 0xf), ((r_nib & 0xf) << 4) | (b_nib & 0xf), 0, 0, 0, 0])
+                    fcntl.ioctl(fd, HIDIOCSFEATURE_8, cpkt)
+
+            # Mandatory commit handshake strobe
+            time.sleep(0.005)
+            fcntl.ioctl(fd, HIDIOCSFEATURE_8, bytes([0x07, 0x18, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00]))
+            time.sleep(0.005)
+            fcntl.ioctl(fd, HIDIOCSFEATURE_8, bytes([0x07, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))
 
             return True, "Mode applied successfully"
         except Exception as e:
@@ -120,6 +141,28 @@ class GM333Controller:
                 os.close(fd)
             except Exception:
                 pass
+
+    def commit_config(self, fd=None):
+        """Sends Report 0x18 hardware commit trigger to apply registers."""
+        own_fd = False
+        if fd is None:
+            fd = self.open_device()
+            own_fd = True
+        if fd is None:
+            return False
+        try:
+            fcntl.ioctl(fd, HIDIOCSFEATURE_8, bytes([0x07, 0x18, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00]))
+            time.sleep(0.005)
+            fcntl.ioctl(fd, HIDIOCSFEATURE_8, bytes([0x07, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))
+            return True
+        except Exception:
+            return False
+        finally:
+            if own_fd:
+                try:
+                    os.close(fd)
+                except Exception:
+                    pass
 
     def send_feature_report(self, pkt):
         """Send raw 8-byte feature report."""
