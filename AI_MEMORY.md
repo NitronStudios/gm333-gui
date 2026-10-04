@@ -75,12 +75,16 @@ Reverse-engineered from `0x44d920` and `0x43cfe0` in `GM333 Setup.exe`:
 1. **NEVER send Report 0x13 in the audio frame loop**:
    Sending Report `0x13` resets the hardware sequencer every frame, causing the microcontroller to flash its default DPI Stage 3 LED (Blue) and aborting Report `0x14` RGB rendering.
    Report `0x13` Mode 2 (`0x07, 0x13, 0x80, 0xa0, 0x1b, 0x04, 0x00, 0x02`) is sent **only once** at worker startup.
-2. **Inside the 30 FPS audio loop**:
-   Only send Report `0x14` (for zones 0..7) + Report `0x18` (Commit Handshake).
-3. **Guaranteed 100% Pitch Black in Silence**:
-   - At startup and when entering silence (`eff_norm <= 0.01` or `silent_ticks >= 3`): send `(0, 0, 0)` to zones 0..7 + Commit.
-   - When silent, skip packet sending to eliminate CPU and USB bus overhead while keeping LEDs 100% off.
-4. **Responsive Beat Color Transitions**:
+2. **NEVER send Report 0x18 (Commit) in the audio frame loop**:
+   Sending `0x18` commits the current hardware register state to the stored profile, which causes the firmware to **re-latch from the stored profile** (usually Neon Wave / Mode 6).
+   This is the root cause of: neon wave during silence + solid DPI-blue during music.
+   Report `0x18` is sent **only once** at startup (after Mode 2 init) and **once** at shutdown.
+3. **Inside the 30 FPS audio loop**:
+   Only send Report `0x14` (for zones 0..7) — NO commit, NO mode packets.
+4. **Guaranteed 100% Pitch Black in Silence**:
+   - At startup and when entering silence (`silent_ticks == 3`): send `(0, 0, 0)` to zones 0..7 (no commit).
+   - When silent, skip further packet sending to eliminate CPU and USB bus overhead while keeping LEDs 100% off.
+5. **Responsive Beat Color Transitions**:
    On rhythmic energy spikes, advance `color_idx` in active palette and apply a brightness boost.
 
 ---

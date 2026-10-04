@@ -2,11 +2,10 @@
 """
 Ant Esports GM333 Native Linux Music Sync Visualizer Engine.
 Features:
-- Native Hardware Music Sync (Mode 12) with full audio reactivity
-- Hardware audio level packets mapping loudness directly to LED intensity (Level 7 quiet to Level 0 peak)
-- Dynamic wave response packets mapping loudness to wave amplitude (0 to 5)
-- Color cycling on transient musical beats
-- Automatic silence sleep: turns off LEDs completely (Mode 14) during sustained silence/pause (no white glitch)
+- Firmware-native Mode 3 music sync engine
+- Smooth brightness scaling: dim at low volume, bright at peak
+- Beat-triggered color cycling across palette
+- Hardware Mode 14 LED off during sustained silence
 - Real-time visualization telemetry sent to GTK GUI
 """
 
@@ -22,11 +21,20 @@ from gi.repository import GLib
 
 from .utils import PALETTES, HIDIOCSFEATURE_8, nibbles_to_hex
 
-# Mode 2: Hardware Static Direct Control Mode (Allows 100% pitch black in silence and direct 0..15 RGB scaling)
-PKT_INIT_MUSIC_SYNC = bytes([0x07, 0x13, 0x80, 0xa0, 0x1b, 0x04, 0x00, 0x02])
+# Mode 3 = Firmware-native Direct Sync mode (music sync engine)
+# B3 = 0x80 | (3<<4) | 0 = 0xb2; B6 = 0x00 (mode 3 < 8)
+PKT_INIT_SYNC    = bytes([0x07, 0x13, 0x80, 0xb2, 0x1b, 0x00, 0x00, 0x02])
 
-# Mode 6: Neon Wave default (ambient restore)
+# Mode 14 = Turn LEDs Off (hardware kill for silence)
+# B3 = 0x62; B6 = 0x80 (mode 14 >= 8)
+PKT_MODE_OFF     = bytes([0x07, 0x13, 0x80, 0x62, 0x1b, 0x00, 0x80, 0x02])
+
+# Mode 6: Neon Wave (ambient restore on shutdown)
 PKT_RESTORE_NEON = bytes([0x07, 0x13, 0xff, 0xe2, 0x1b, 0x04, 0x00, 0x02])
+
+# Volume-to-firmware-level table: index 0=quiet, 9=loud → code 7=quiet, 0=loudest
+LEVEL_CODES = [7, 5, 5, 4, 4, 3, 3, 2, 2, 0]
+
 
 class MusicSyncEngine:
     def __init__(self, controller, on_update_callback=None):
@@ -131,31 +139,31 @@ class MusicSyncEngine:
             return
 
         try:
-            # Put mouse into native Direct Static mode (Mode 3)
-            fcntl.ioctl(fd, HIDIOCSFEATURE_8, PKT_INIT_MUSIC_SYNC)
-            time.sleep(0.01)
-            self.controller.commit_config(fd)
-            time.sleep(0.01)
+            # Enter Mode 3 (firmware-native music sync engine) — no commit needed
+            fcntl.ioctl(fd, HIDIOCSFEATURE_8, PKT_INIT_SYNC)
+            time.sleep(0.04)
 
-            # Turn off all 8 zones initially (completely off / pitch black in silence)
+            # Send initial palette color to all 8 zones
+            palette_info = PALETTES.get(self.palette_name, PALETTES["cyberpunk"])
+            palette_colors = palette_info["colors"]
+            init_r, init_g, init_b = palette_colors[0]
             for z in range(8):
-                pkt_black = bytes([0x07, 0x14, (z << 5) | 0, 0, 0, 0, 0, 0])
-                fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt_black)
-            time.sleep(0.005)
-            self.controller.commit_config(fd)
-            time.sleep(0.005)
+                fcntl.ioctl(fd, HIDIOCSFEATURE_8, bytes([0x07, 0x14,
+                                                          (z << 5) | (init_r & 0x0f),
+                                                          ((init_g & 0x0f) << 4) | (init_b & 0x0f),
+                                                          0, 0, 0, 0]))
 
             color_idx = 0
-            last_sent_rgb = (0, 0, 0)
             noise_floor = 150.0
             peak_ceiling = 12000.0
             last_send_time = 0
             last_beat_time = 0
             prev_rms = 0.0
             smooth_norm = 0.0
-            silent_ticks = 0
+            no_sound_ticks = 0
             energy_fast = 0.0
             energy_slow = 0.0
+            is_hardware_off = False
 
             while not self.stop_event.is_set():
                 # Detect active audio sink
@@ -203,129 +211,114 @@ class MusicSyncEngine:
 
                         now = time.time()
 
-                        # Silence Tracking (ticks count consecutive quiet audio frames)
-                        if rms < 80.0:
-                            silent_ticks += 1
+                        # Sound / silence tracking
+                        if rms > 50:
+                            no_sound_ticks = 0
                         else:
-                            silent_ticks = 0
-
-                        # When entering silence (at tick 3), reinforce turning off all 8 zones (pitch black)
-                        if silent_ticks == 3 and self.min_brightness <= 0.01:
-                            try:
-                                for z in range(8):
-                                    pkt_black = bytes([0x07, 0x14, (z << 5) | 0, 0, 0, 0, 0, 0])
-                                    fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt_black)
-                                self.controller.commit_config(fd)
-                                last_sent_rgb = (0, 0, 0)
-                            except Exception:
-                                pass
+                            no_sound_ticks += 1
 
                         # Dynamic Automatic Gain Control (AGC)
-                        if rms > 100.0:
+                        if rms > 50:
                             noise_floor = (noise_floor * 0.98) + (min(rms, noise_floor) * 0.02)
                             if rms > peak_ceiling:
-                                peak_ceiling = (peak_ceiling * 0.75) + (rms * 0.25)
+                                peak_ceiling = (peak_ceiling * 0.70) + (rms * 0.30)
                             else:
-                                peak_ceiling = max(1000.0, peak_ceiling * 0.998)
+                                peak_ceiling = max(800.0, peak_ceiling * 0.999)
 
                         sens = self.sensitivity
                         eff_floor = max(80.0, noise_floor / sens)
                         eff_ceiling = max(eff_floor + 400.0, peak_ceiling / sens)
+                        norm = max(0.0, min(1.0, (rms - eff_floor) / (eff_ceiling - eff_floor)))
 
-                        # True normalized audio volume (0.0 to 1.0)
-                        if rms <= eff_floor:
-                            norm = 0.0
-                        else:
-                            norm = max(0.0, min(1.0, (rms - eff_floor) / (eff_ceiling - eff_floor)))
-
-                        # Get current color palette
-                        palette_info = PALETTES.get(self.palette_name, PALETTES["cyberpunk"])
-                        palette_colors = palette_info["colors"]
-
-                        # Check if user switched palette in GUI
+                        # Reload palette if user switched it in GUI
                         if self.palette_changed:
                             self.palette_changed = False
+                            palette_info = PALETTES.get(self.palette_name, PALETTES["cyberpunk"])
+                            palette_colors = palette_info["colors"]
                             color_idx = 0
-                            last_sent_rgb = None
 
-                        # Energy Tracking for Beat Detection
+                        # Beat detection — tight thresholds to avoid false triggers
+                        delta = rms - prev_rms
                         energy_fast = (energy_fast * 0.55) + (rms * 0.45)
                         energy_slow = (energy_slow * 0.95) + (rms * 0.05)
-                        delta = rms - prev_rms
                         is_beat = False
 
-                        beat_thresh = 1.15 / sens
-                        delta_thresh = 110.0 / sens
+                        beat_thresh = 1.40 / sens
+                        delta_thresh = 300.0 / sens
 
-                        if rms > 70.0 and norm > 0.12 and (now - last_beat_time) > 0.15:
-                            if (energy_fast > (energy_slow * beat_thresh) and delta > delta_thresh) or (norm > 0.55 and delta > 120.0):
+                        if rms > 200.0 and norm > 0.40 and (now - last_beat_time) > 0.25:
+                            if (energy_fast > (energy_slow * beat_thresh) and delta > delta_thresh) or (norm > 0.85 and delta > 350.0):
                                 is_beat = True
                                 last_beat_time = now
                                 if self.color_on_beat:
                                     color_idx = (color_idx + 1) % len(palette_colors)
-                                smooth_norm = max(smooth_norm, min(1.0, norm + 0.35))
 
                         prev_rms = rms
 
-                        # Smooth loudness tracking for Brightness / VU meter
-                        if silent_ticks > 5 or norm <= 0.005:
-                            smooth_norm *= 0.65
-                            if smooth_norm < 0.015:
+                        # Smooth loudness tracking
+                        if norm <= 0.01:
+                            smooth_norm = smooth_norm * 0.75
+                            if smooth_norm < 0.01:
                                 smooth_norm = 0.0
                         elif norm > smooth_norm:
                             smooth_norm = (smooth_norm * 0.20) + (norm * 0.80)
                         else:
-                            smooth_norm = (smooth_norm * 0.84) + (norm * 0.16)
+                            smooth_norm = (smooth_norm * 0.85) + (norm * 0.15)
 
-                        # Effective volume factoring in silence baseline brightness
-                        if self.min_brightness <= 0.01:
-                            if smooth_norm <= 0.015:
-                                eff_norm = 0.0
-                            else:
-                                eff_norm = min(1.0, max(0.0, smooth_norm ** 0.85))
+                        # Effective brightness (respect min_brightness setting)
+                        if self.min_brightness > 0.01:
+                            eff = self.min_brightness + (1.0 - self.min_brightness) * min(1.0, smooth_norm ** 0.75)
                         else:
-                            eff_norm = self.min_brightness + (1.0 - self.min_brightness) * (smooth_norm ** 0.85)
+                            eff = min(1.0, smooth_norm ** 0.75)
 
-                        brightness = eff_norm
+                        brightness = eff
 
-                        # Hardware packet throttle (25-30 FPS)
+                        # Throttled LED updates
                         min_interval = 1.0 / max(15, min(self.fps, 35))
                         if (now - last_send_time) >= min_interval:
                             last_send_time = now
 
-                            r_base, g_base, b_base = palette_colors[color_idx % len(palette_colors)]
+                            try:
+                                if no_sound_ticks > 40 and self.min_brightness <= 0.01:
+                                    # SILENCE: Mode 14 hardware LED off (once on transition)
+                                    if not is_hardware_off:
+                                        fcntl.ioctl(fd, HIDIOCSFEATURE_8, PKT_MODE_OFF)
+                                        is_hardware_off = True
+                                else:
+                                    # ACTIVE: brightness-scaled direct color streaming
+                                    if is_hardware_off:
+                                        # Wake up: re-enter Mode 3
+                                        fcntl.ioctl(fd, HIDIOCSFEATURE_8, PKT_INIT_SYNC)
+                                        time.sleep(0.03)
+                                        is_hardware_off = False
 
-                            if eff_norm <= 0.01 or silent_ticks >= 3:
-                                # COMPLETELY OFF / PITCH BLACK IN SILENCE
-                                r_scaled = 0
-                                g_scaled = 0
-                                b_scaled = 0
-                            else:
-                                # Scale directly from 1 to 15 based on eff_norm
-                                r_scaled = max(0, min(15, int(round(r_base * eff_norm))))
-                                g_scaled = max(0, min(15, int(round(g_base * eff_norm))))
-                                b_scaled = max(0, min(15, int(round(b_base * eff_norm))))
-                                if r_base > 0 and r_scaled == 0:
-                                    r_scaled = 1
-                                if g_base > 0 and g_scaled == 0:
-                                    g_scaled = 1
-                                if b_base > 0 and b_scaled == 0:
-                                    b_scaled = 1
+                                    r_base, g_base, b_base = palette_colors[color_idx % len(palette_colors)]
 
-                            current_tuple = (r_scaled, g_scaled, b_scaled)
-                            if current_tuple != last_sent_rgb:
-                                try:
-                                    # ONLY stream Report 0x14 (8 zones RGB) + Report 0x18 (Commit)!
-                                    # Report 0x13 is NEVER sent in the frame loop to prevent blue mode-reset flickers!
+                                    # Scale brightness 0..15 by eff (perceptual curve)
+                                    r_s = max(0, min(15, int(round(r_base * eff))))
+                                    g_s = max(0, min(15, int(round(g_base * eff))))
+                                    b_s = max(0, min(15, int(round(b_base * eff))))
+                                    if r_base > 0 and r_s == 0 and eff > 0.02: r_s = 1
+                                    if g_base > 0 and g_s == 0 and eff > 0.02: g_s = 1
+                                    if b_base > 0 and b_s == 0 and eff > 0.02: b_s = 1
+
+                                    # Send scaled color to all 8 zones every frame
                                     for z in range(8):
-                                        pkt_rgb = bytes([0x07, 0x14, (z << 5) | (g_scaled & 0x0f), ((r_scaled & 0x0f) << 4) | (b_scaled & 0x0f), 0, 0, 0, 0])
-                                        fcntl.ioctl(fd, HIDIOCSFEATURE_8, pkt_rgb)
-                                    self.controller.commit_config(fd)
-                                    last_sent_rgb = current_tuple
-                                except Exception:
-                                    pass
+                                        fcntl.ioctl(fd, HIDIOCSFEATURE_8, bytes([0x07, 0x14,
+                                                                                  (z << 5) | (r_s & 0x0f),
+                                                                                  ((g_s & 0x0f) << 4) | (b_s & 0x0f),
+                                                                                  0, 0, 0, 0]))
 
-                        # Notify UI
+                                    # Sound level hint to keep Mode 3 engine alive
+                                    lvl_idx = min(9, int(smooth_norm * 9.99))
+                                    lvl_code = LEVEL_CODES[lvl_idx]
+                                    fcntl.ioctl(fd, HIDIOCSFEATURE_8,
+                                                bytes([0x07, 0x13, 0x80, 0xa1, 0x1b, lvl_code, 0x03, 0xff]))
+
+                            except Exception:
+                                pass
+
+                        # Update live telemetry for GUI
                         r_cur, g_cur, b_cur = palette_colors[color_idx % len(palette_colors)]
                         base_hex = nibbles_to_hex(r_cur, g_cur, b_cur)
                         self.current_rms = rms

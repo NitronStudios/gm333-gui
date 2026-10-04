@@ -143,7 +143,11 @@ class GM333Controller:
                 pass
 
     def commit_config(self, fd=None):
-        """Sends Report 0x18 hardware commit trigger to apply registers."""
+        """Sends Report 0x18 hardware commit trigger to apply registers.
+        IMPORTANT: Only call during init/shutdown, NEVER in the per-frame audio loop.
+        Calling 0x18 in the loop causes the firmware to re-latch from the stored profile
+        register, causing neon wave during silence and DPI blue during music playback.
+        """
         own_fd = False
         if fd is None:
             fd = self.open_device()
