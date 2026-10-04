@@ -11,6 +11,8 @@ Features:
 """
 
 import os
+import sys
+import math
 import time
 import struct
 import fcntl
