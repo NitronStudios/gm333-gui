@@ -277,6 +277,12 @@ class MusicSyncView(Gtk.Box):
     def _on_palette_clicked(self, widget, pkey):
         self.engine.set_palette(pkey)
         self._update_active_palette_ui(pkey)
+        if pkey in PALETTES:
+            pinfo = PALETTES[pkey]
+            self.current_color_rgb = pinfo["colors"][0]
+            self.current_color_hex = pinfo["preview"][0]
+            self.lbl_color_info.set_text(f"Color: {self.current_color_hex}")
+            self._update_color_dot(self.current_color_hex)
         if self.on_status_change:
             pname = PALETTES[pkey]["name"]
             self.on_status_change(f"Switched rhythm color palette to: {pname}", True)
