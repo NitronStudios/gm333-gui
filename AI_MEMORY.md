@@ -1,5 +1,5 @@
-# AI Memory — Ant Esports GM333 Linux Driver & Music Sync Project
-> Last updated: 2026-10-04 | Maintained by Antigravity AI
+# AI Memory — Detox Open Mouse Drivers (Linux Gaming Mouse Driver & AI Music Sync)
+> Last updated: 2026-10-05 | Maintained by Antigravity AI
 
 ---
 

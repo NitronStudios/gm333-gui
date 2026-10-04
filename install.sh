@@ -14,7 +14,7 @@ BOLD="\033[1m"
 RESET="\033[0m"
 
 echo -e "${CYAN}================================================================${RESET}"
-echo -e "${BOLD}       Ant Esports GM333 Linux GUI Universal Installer          ${RESET}"
+echo -e "${BOLD}       Detox Open Mouse Drivers Universal Installer             ${RESET}"
 echo -e "${CYAN}================================================================${RESET}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -80,9 +80,11 @@ sudo cp -r "$SCRIPT_DIR/assets" /opt/gm333-gui/
 sudo cp "$SCRIPT_DIR/gm333-gui" /opt/gm333-gui/
 sudo chmod +x /opt/gm333-gui/gm333-gui
 
-# Create symlink in /usr/local/bin
+# Create symlinks in /usr/local/bin
 sudo ln -sf /opt/gm333-gui/gm333-gui /usr/local/bin/gm333-gui
-echo -e "${GREEN}[✓]${RESET} Created binary symlink /usr/local/bin/gm333-gui"
+sudo ln -sf /opt/gm333-gui/gm333-gui /usr/local/bin/detox-mouse
+sudo ln -sf /opt/gm333-gui/gm333-gui /usr/local/bin/detox-open-mouse
+echo -e "${GREEN}[✓]${RESET} Created binary symlinks /usr/local/bin/detox-mouse and gm333-gui"
 
 # Install Icons
 echo -e "\n${CYAN}[4/5] Installing application icons...${RESET}"
@@ -110,12 +112,12 @@ sudo cp "$SCRIPT_DIR/packaging/gm333-gui.desktop" /usr/share/applications/gm333-
 if has_cmd update-desktop-database; then
     sudo update-desktop-database /usr/share/applications 2>/dev/null || true
 fi
-echo -e "${GREEN}[✓]${RESET} Desktop entry registered: Ant Esports GM333"
+echo -e "${GREEN}[✓]${RESET} Desktop entry registered: Detox Open Mouse Drivers"
 
 echo -e "\n${GREEN}================================================================${RESET}"
 echo -e "${GREEN}${BOLD}       Installation Completed Successfully!                     ${RESET}"
 echo -e "${GREEN}================================================================${RESET}"
 echo -e "You can now launch the application in two ways:"
-echo -e "  1. Search for ${BOLD}'Ant Esports GM333'${RESET} in your Application Menu / Dash"
-echo -e "  2. Or run command: ${BOLD}gm333-gui${RESET} in any terminal"
+echo -e "  1. Search for ${BOLD}'Detox Open Mouse Drivers'${RESET} in your Application Menu / Dash"
+echo -e "  2. Or run command: ${BOLD}detox-mouse${RESET} (or ${BOLD}gm333-gui${RESET}) in any terminal"
 echo ""

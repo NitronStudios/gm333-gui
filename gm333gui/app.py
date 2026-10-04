@@ -14,7 +14,7 @@ from .ui_info import InfoView
 
 class GM333App(Gtk.ApplicationWindow):
     def __init__(self, app=None):
-        super().__init__(application=app, title="Ant Esports GM333 Control Panel")
+        super().__init__(application=app, title="Detox Open Mouse Drivers")
         self.set_default_size(960, 680)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.get_style_context().add_class("main-window")
@@ -63,8 +63,8 @@ class GM333App(Gtk.ApplicationWindow):
     def _build_headerbar(self):
         header = Gtk.HeaderBar()
         header.set_show_close_button(True)
-        header.set_title("Ant Esports GM333")
-        header.set_subtitle("Lighting & Music Sync")
+        header.set_title("Detox Open Mouse Drivers")
+        header.set_subtitle("Ant Esports GM333 • AI Music Sync")
 
         # App Icon in header
         assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
@@ -97,7 +97,7 @@ class GM333App(Gtk.ApplicationWindow):
         # About button
         btn_about = Gtk.Button()
         btn_about.set_image(Gtk.Image.new_from_icon_name("help-about-symbolic", Gtk.IconSize.MENU))
-        btn_about.set_tooltip_text("About Ant Esports GM333")
+        btn_about.set_tooltip_text("About Detox Open Mouse Drivers")
         btn_about.connect("clicked", self._show_about_dialog)
         header.pack_end(btn_about)
 
@@ -200,16 +200,16 @@ class GM333App(Gtk.ApplicationWindow):
     def _show_about_dialog(self, widget):
         about = Gtk.AboutDialog()
         about.set_transient_for(self)
-        about.set_program_name("Ant Esports GM333 Controller")
+        about.set_program_name("Detox Open Mouse Drivers")
         about.set_version("1.0.0")
         about.set_comments(
-            "Native Linux GUI for Ant Esports GM333 Gaming Mouse.\n"
-            "Control 16 onboard hardware lighting modes and live audio-reactive Music Sync.\n"
-            "Compatible across Arch Linux, Ubuntu, Fedora, Debian, and openSUSE."
+            "Universal Linux GUI & Hardware Driver Suite for Gaming Mice.\n"
+            "Hardware: Ant Esports GM333 / Instant Microelectronics (30fa:1440).\n"
+            "Features 16 onboard hardware lighting routines & AI Spectral Flux Beat Detection."
         )
-        about.set_website("https://github.com")
+        about.set_website("https://github.com/NitronStudios/detox-open-mouse-drivers")
         about.set_website_label("GitHub Project")
-        about.set_authors(["Reverse-engineered & developed for Linux gaming"])
+        about.set_authors(["NitronStudios", "Muhammed Dilshad A (@xCaptaiN09)", "Linux Gaming Community"])
 
         assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
         icon_path = os.path.join(assets_dir, "gm333.png")

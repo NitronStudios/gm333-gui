@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="gm333-gui",
+    name="detox-open-mouse-drivers",
     version="1.0.0",
-    description="Ant Esports GM333 Linux Hardware & Music Sync GUI Controller",
-    author="Ant Esports GM333 Linux Project",
+    description="Detox Open Mouse Drivers - Linux Hardware & AI Music Sync Controller for Gaming Mice",
+    author="NitronStudios & Linux Gaming Community",
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -13,6 +13,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
+            "detox-mouse=gm333gui.__main__:main",
+            "detox-open-mouse=gm333gui.__main__:main",
             "gm333-gui=gm333gui.__main__:main",
         ],
     },

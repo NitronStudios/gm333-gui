@@ -1,6 +1,6 @@
-# Release v1.0.0 — Official Linux Driver & AI Music Sync Engine
+# Release v1.0.0 — Detox Open Mouse Drivers
 
-We are excited to announce the first major production release of **`gm333-gui`**, the native Linux driver and control center for the **Ant Esports GM333 Gaming Mouse** (`30fa:1440`).
+We are excited to announce the first major production release of **`Detox Open Mouse Drivers`**, the universal open-source Linux hardware driver and control center for gaming mice powered by Instant Microelectronics controllers (including the **Ant Esports GM333**, `30fa:1440`).
 
 This release provides complete Linux support, reverse-engineered USB HID communication, 16 hardware lighting modes, and an industry-grade **AI-powered Music Sync Engine** featuring real-time spectral flux FFT beat tracking.
 
@@ -47,8 +47,8 @@ Directly sets and latches onboard hardware registers across all 16 microcontroll
 ## 📥 Installation
 
 ```bash
-git clone https://github.com/NitronStudios/gm333-gui.git
-cd gm333-gui
+git clone https://github.com/NitronStudios/detox-open-mouse-drivers.git
+cd detox-open-mouse-drivers
 sudo ./install.sh
 ```
 

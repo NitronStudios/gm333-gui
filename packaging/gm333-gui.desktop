@@ -1,12 +1,12 @@
 [Desktop Entry]
-Name=Ant Esports GM333
-GenericName=Gaming Mouse Controller
-Comment=Hardware RGB Lighting & Music Sync Controller for Ant Esports GM333
+Name=Detox Open Mouse Drivers
+GenericName=Gaming Mouse Controller & AI Music Sync
+Comment=Detox Open Mouse Drivers - Hardware RGB Lighting & AI Music Sync (Ant Esports GM333)
 Exec=gm333-gui
 Icon=gm333
 Terminal=false
 Type=Application
 Categories=Settings;HardwareSettings;AudioVideo;Utility;
-Keywords=mouse;rgb;lighting;gaming;music;sync;ant;esports;gm333;
+Keywords=detox;mouse;driver;rgb;lighting;gaming;music;sync;ant;esports;gm333;
 StartupNotify=true
 StartupWMClass=gm333-gui

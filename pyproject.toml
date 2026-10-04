@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gm333-gui"
+name = "detox-open-mouse-drivers"
 version = "1.0.0"
-description = "Ant Esports GM333 Linux Hardware & Music Sync GUI Controller"
+description = "Detox Open Mouse Drivers - Linux Hardware & AI Music Sync Controller for Gaming Mice"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
@@ -14,7 +14,7 @@ dependencies = [
     "Pillow>=8.0.0",
 ]
 authors = [
-    { name = "Ant Esports Linux Community" }
+    { name = "NitronStudios & Linux Gaming Community" }
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -23,4 +23,6 @@ classifiers = [
 ]
 
 [project.scripts]
+detox-mouse = "gm333gui.__main__:main"
+detox-open-mouse = "gm333gui.__main__:main"
 gm333-gui = "gm333gui.__main__:main"

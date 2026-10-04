@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🖱️ Ant Esports GM333 Linux Control Panel & AI Music Sync
+# 🖱️ Detox Open Mouse Drivers
 
-**A native, high-performance Linux GUI & hardware driver suite for the Ant Esports GM333 Gaming Mouse.**
+**Universal Open-Source Linux Hardware Driver & AI Music Sync Suite for Gaming Mice**
 
-[![Release](https://img.shields.io/badge/release-v1.0.0-blue.svg?style=for-the-badge)](https://github.com/NitronStudios/gm333-gui/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.0-blue.svg?style=for-the-badge)](https://github.com/NitronStudios/detox-open-mouse-drivers/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Platform](https://img.shields.io/badge/platform-Linux-FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)](https://kernel.org)
@@ -20,9 +20,11 @@
 
 ## 📖 Overview
 
-The **Ant Esports GM333** is an Instant Microelectronics (`30fa:1440`) USB gaming mouse. While official software is restricted to Windows, this project delivers a **complete, native Linux driver and modern GTK3 control panel** built entirely by reverse-engineering the onboard USB HID communication protocol.
+**Detox Open Mouse Drivers** is a native, high-performance Linux driver and modern GTK3 control panel for gaming mice powered by Instant Microelectronics controllers (including the popular **Ant Esports GM333**, USB ID `30fa:1440`).
 
-It provides instant hardware register control, 16 hardware lighting modes, and a cutting-edge **AI-powered audio visualizer engine** that turns your mouse LEDs into a dynamic, music-reactive light show with zero perceptible latency.
+While proprietary vendor software is strictly locked to Windows, **Detox Open Mouse Drivers** delivers complete hardware control natively on Linux built entirely by reverse-engineering the onboard USB HID communication protocol.
+
+It provides instant hardware register control, 16 onboard lighting modes, and an **AI-powered audio visualizer engine** that turns your mouse LEDs into a dynamic, music-reactive light show with zero perceptible latency.
 
 ---
 
@@ -76,26 +78,28 @@ Directly latches firmware registers across all 16 built-in lighting routines:
 Clone the repository and run the installer:
 
 ```bash
-git clone https://github.com/NitronStudios/gm333-gui.git
-cd gm333-gui
+git clone https://github.com/NitronStudios/detox-open-mouse-drivers.git
+cd detox-open-mouse-drivers
 sudo ./install.sh
 ```
 
 The installer automatically:
 1. Detects your distribution (`Arch`, `Ubuntu`, `Debian`, `Fedora`, `openSUSE`) and installs required packages (`gtk3`, `python-gobject`, `numpy`, `libpulse`, `python-pillow`).
 2. Configures the `/etc/udev/rules.d/` permissions.
-3. Installs binaries to `/opt/gm333-gui` and symlinks `gm333-gui` to `/usr/local/bin`.
+3. Installs binaries to `/opt/gm333-gui` and symlinks `detox-mouse` and `gm333-gui` to `/usr/local/bin`.
 4. Registers desktop menu entries and high-resolution icons.
 
 Launch the app anytime from your application menu or by running:
 ```bash
+detox-mouse
+# or:
 gm333-gui
 ```
 
 ### Option 2: Run Without Installing (Portable)
 
 ```bash
-cd gm333-gui
+cd detox-open-mouse-drivers
 ./run-gui.sh
 ```
 
